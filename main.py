@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import ttk
 from tkinter import filedialog, messagebox, Menu, Toplevel
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import serialization
@@ -26,7 +27,7 @@ class Application(tk.Frame):
   
     self.key_menu = Menu(self.menu, tearoff=0)
     self.key_menu.add_command(label="Generate new keys", command=self.generate_keys)
-    self.key_menu.add_command(label="Import public key")
+    self.key_menu.add_command(label="Import public key", command=self.import_pub_key)
 
     self.operations_menu = Menu(self.menu, tearoff=0)
     self.operations_menu.add_command(label="Encrypt", command=self.encrypt)
@@ -66,7 +67,7 @@ class Application(tk.Frame):
     if self.has_private_k != True:
       messagebox.showerror(title="Error", message="Cannot decrypt without private key, generate one to encrypt files")
     
-    self.decrypt_file(filename=self.filename, recipient_public_key=self.private_key)
+    self.decrypt_file(filename=self.filename, recipient_private_key=self.private_key)
     messagebox.showinfo("File Decrypted", "Finished decrypting file")
 
   def update_label(self, label, newinfo):
@@ -75,10 +76,9 @@ class Application(tk.Frame):
   def open_file(self):
     self.filetypes = (
     ('text files', '*.txt'),
-    ('All files', '*.*')
     )
     self.filename = filedialog.askopenfilename(
-    title='Open a file',
+    title='Select a file',
     initialdir='/',
     filetypes=self.filetypes) 
     self.update_label(self.path_label, f"Current File: {self.filename}")
@@ -88,10 +88,15 @@ class Application(tk.Frame):
     self.kg_window = Toplevel(self.master)
     self.kg_window.geometry("200x100")
     self.kg_window.title("Generate new keys")
-    self.key_bits = tk.Label(self.kg_window, text="New key size (bits)")
-    self.key_bits_entry = tk.Entry(self.kg_window)
+
+    bit_sizes = [8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096]
+    self.selected_bit_size = tk.IntVar(self.kg_window)
+    self.selected_bit_size.set(bit_sizes[0])
+
+    self.key_bits_entry = ttk.Combobox(self.kg_window, values = bit_sizes)
+    self.key_bits_entry.set("Key bitszie")
+
     self.submit_keys = tk.Button(self.kg_window, text="Generate", command=self.submit_new_key_gen)
-    self.key_bits.pack()
     self.key_bits_entry.pack()
     self.submit_keys.pack()
 
@@ -107,14 +112,25 @@ class Application(tk.Frame):
     self.private_key = private_key
     self.public_key = private_key.public_key()
 
-    self.update_label(self.priv_key_label,f"Private Key: RSA_PUB_{self.bits}")
-    self.update_label(self.pub_key_label,f"Public Key: RSA_PRI_{self.bits}")
+    self.update_label(self.priv_key_label,f"Private Key: GEN_RSA_PUB_{self.bits}")
+    self.update_label(self.pub_key_label,f"Public Key: GEN_RSA_PRI_{self.bits}")
     self.has_private_k = True
     self.has_public_k = True
     self.kg_window.destroy()
 
   def import_pub_key(self):
-    pass
+    filename = filedialog.askopenfilename(
+        title='Select a public key file',
+        initialdir='/',
+        filetypes=(('PEM files', '*.pem'), ('All files', '*.*'))
+    )
+    with open(filename, 'rb') as file:
+        key_data = file.read()
+
+    self.public_key = rsa.RSAPublicKey.load_pkcs1(key_data, default_backend())
+
+    self.update_label(self.pub_key_label, f"Public Key: {filename}")
+    self.has_public_k = True
 
   def encrypt_file(self, filename, recipient_public_key):
         aes_key = Fernet.generate_key()
